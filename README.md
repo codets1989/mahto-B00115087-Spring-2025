@@ -1,1 +1,1 @@
-Changed the project structure added gpt2 model but stil yet to get the results I want from it
+tweaked output function to get the result I want from gpt2 model
