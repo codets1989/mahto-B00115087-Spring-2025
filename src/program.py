@@ -87,3 +87,101 @@ def correct_grammar(text):
         print(f"Error: {e}")
         return text  
 print(correct_grammar("I has a apple."))     
+
+from datasets import load_dataset
+from transformers import DistilBertTokenizer, DistilBertForTokenClassification
+import torch
+
+
+dataset = load_dataset("jfleg")
+
+tokenizer = DistilBertTokenizer.from_pretrained("distilbert-base-uncased")
+
+def preprocess_function(examples):
+    input_ids_list = []
+    attention_mask_list = []
+    labels_list = []
+    
+    for sentence, corrections in zip(examples["sentence"], examples["corrections"]):
+        corrected_sentence = corrections[0] 
+        
+     
+        tokenized_sentence = tokenizer(sentence, padding="max_length", truncation=True)
+        tokenized_corrected = tokenizer(corrected_sentence, padding="max_length", truncation=True)
+        
+        input_ids = tokenized_sentence["input_ids"]
+        corrected_ids = tokenized_corrected["input_ids"]
+        attention_mask = tokenized_sentence["attention_mask"]
+
+      
+        token_labels = [0] * len(input_ids)  
+        for i in range(len(input_ids)):
+            if i < len(corrected_ids) and input_ids[i] != corrected_ids[i]:
+                token_labels[i] = 1 
+        input_ids_list.append(input_ids)
+        attention_mask_list.append(attention_mask)
+        labels_list.append(token_labels)
+
+    return {"input_ids": input_ids_list, "attention_mask": attention_mask_list, "labels": labels_list}
+
+
+tokenized_dataset = dataset.map(preprocess_function, batched=True)
+
+
+tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+
+from transformers import Trainer, TrainingArguments
+
+
+training_args = TrainingArguments(
+    output_dir="./distilbert-grammar-correction",
+    eval_strategy="epoch",
+    learning_rate=5e-5,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
+    num_train_epochs=3,
+    weight_decay=0.01,
+    save_strategy="epoch",
+    logging_dir="./logs",
+    logging_steps=10,
+    push_to_hub=False
+)
+
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["validation"],
+    eval_dataset=tokenized_dataset["test"],
+    tokenizer=tokenizer
+)
+
+
+trainer.train()
+
+from transformers import DistilBertForTokenClassification, DistilBertTokenizer
+
+model_path = "./distilbert-grammar-correction"
+model = DistilBertForTokenClassification.from_pretrained(model_path)
+tokenizer = DistilBertTokenizer.from_pretrained(model_path)
+
+
+def classify_grammar(text):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True)
+    outputs = model(**inputs)
+    
+    predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()  # Get token-level predictions
+    tokens = tokenizer.convert_ids_to_tokens(inputs["input_ids"].squeeze())
+
+    incorrect_tokens = [tokens[i] for i in range(len(tokens)) if predictions[i] == 1]
+
+    if incorrect_tokens:
+        return f"Incorrect (errors in: {', '.join(incorrect_tokens)})"
+    else:
+        return "Correct"
+
+
+input_sentence = "She are right."
+classification = classify_grammar(input_sentence)
+print(f"Input: {input_sentence}")
+print(f"Classification: {classification}")
