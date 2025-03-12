@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from transformers import T5ForConditionalGeneration, T5Tokenizer
-
+from transformers import DistilBertTokenizer, DistilBertForTokenClassification
 
 app = FastAPI()
 
@@ -9,6 +9,9 @@ model_path = "./t5-grammar-correction"
 model = T5ForConditionalGeneration.from_pretrained(model_path)
 tokenizer = T5Tokenizer.from_pretrained(model_path)
 
+model_path1 = "./distilbert-grammar-correction"
+model1 = DistilBertForTokenClassification.from_pretrained(model_path1)
+tokenizer1 = DistilBertTokenizer.from_pretrained(model_path1)
 
 class TextRequest(BaseModel):
     text: str
@@ -48,4 +51,20 @@ async def correct_grammar(request: TextRequest):
         print(f"Error: {e}")
         return {"error": str(e)}
 
+def classify_grammar(text: str):
+    inputs = tokenizer1(text, return_tensors="pt", truncation=True)
+    outputs = model1(**inputs)
+    
+    predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()  # Get token-level predictions
+    tokens = tokenizer1.convert_ids_to_tokens(inputs["input_ids"].squeeze())
 
+    incorrect_tokens = [tokens[i] for i in range(len(tokens)) if predictions[i] == 1]
+
+    if incorrect_tokens:
+        return {"status": "Incorrect", "errors": incorrect_tokens}
+    else:
+        return {"status": "Correct", "errors": []}
+@app.post("/check_grammar")
+def check_grammar(request: TextRequest):
+    result = classify_grammar(request.text)
+    return result
