@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from transformers import DistilBertTokenizer, DistilBertForTokenClassification
+import re
+
 
 app = FastAPI()
 
@@ -19,43 +21,54 @@ class TextRequest(BaseModel):
 @app.post("/correct")
 async def correct_grammar(request: TextRequest):
     try:
-        model.eval()  
-        input_text = f"grammar :{request.text}"
+        model.eval()
+        print("Original text:", request.text)
+        sentences = re.split(r'[.!?]\s+', request.text)
+        print("Split Sentences:", sentences)
+        corrected_sentences = []
+        for sentence in sentences:
+            if not sentence.strip():
+                continue  
+
+            input_text = f"grammar: {sentence}"
+            inputs = tokenizer(
+                input_text,
+                return_tensors="pt",
+                max_length=512,
+                truncation=True,
+                padding=True
+            )
+
+            outputs = model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_length=100,
+                num_beams=5,
+                num_return_sequences=1,
+                early_stopping=True
+            )
+
+            if outputs is None or len(outputs) == 0:
+                corrected_sentences.append(sentence)  
+            else:
+                corrected_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                corrected_sentences.append(corrected_text)
+
         
-        inputs = tokenizer(
-            input_text,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        )
+        final_corrected_text = " ".join(corrected_sentences)
 
-        print("Decoded Input:", tokenizer.decode(inputs["input_ids"][0]))  # Debugging
-
-        outputs = model.generate(
-            input_ids=inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
-            max_length=100,
-            num_beams=5,
-            num_return_sequences=1,
-            early_stopping=True
-        )
-
-        if outputs is None or len(outputs) == 0:
-            return {"corrected_text": "No correction generated."}
-
-        corrected_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return {"corrected_text": corrected_text}
+        return {"corrected_text": final_corrected_text}
 
     except Exception as e:
         print(f"Error: {e}")
         return {"error": str(e)}
 
+
 def classify_grammar(text: str):
     inputs = tokenizer1(text, return_tensors="pt", truncation=True)
     outputs = model1(**inputs)
     
-    predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()  # Get token-level predictions
+    predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()  
     tokens = tokenizer1.convert_ids_to_tokens(inputs["input_ids"].squeeze())
 
     incorrect_tokens = [tokens[i] for i in range(len(tokens)) if predictions[i] == 1]
@@ -64,7 +77,14 @@ def classify_grammar(text: str):
         return {"status": "Incorrect", "errors": incorrect_tokens}
     else:
         return {"status": "Correct", "errors": []}
+
 @app.post("/check_grammar")
 def check_grammar(request: TextRequest):
-    result = classify_grammar(request.text)
-    return result
+    sentences = re.split(r'[.!?]\s+', request.text)
+    results = []
+
+    for sentence in sentences:
+        result = classify_grammar(sentence)
+        results.append({"sentence": sentence, "status": result["status"], "errors": result["errors"]})
+
+    return {"results": results}
