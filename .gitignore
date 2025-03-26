@@ -4,3 +4,4 @@ src/gpt2-grammar-correction/
 src/logs/
 src/distilbert-grammar-correction/
 src/writing-coach-t5/
+src/writing-coach/node_modules/
