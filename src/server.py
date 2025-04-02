@@ -3,10 +3,16 @@ from pydantic import BaseModel
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from transformers import DistilBertTokenizer, DistilBertForTokenClassification
 import re
+from fastapi.middleware.cors import CORSMiddleware
 
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 model_path = "./t5-grammar-correction"  
 model = T5ForConditionalGeneration.from_pretrained(model_path)
 tokenizer = T5Tokenizer.from_pretrained(model_path)
