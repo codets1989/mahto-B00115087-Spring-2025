@@ -12,14 +12,15 @@ function TextCorrection() {
     setCorrectedText("");
 
     try {
-      const response = await fetch("http://localhost:5000/correct", {
+      const response = await fetch("http://localhost:5278/api/grammar/correct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: inputText }),
       });
 
       const data = await response.json();
-      setCorrectedText(data.correctedText);
+      console.log(data);
+      setCorrectedText(data.corrected_text);
     } catch (err) {
       console.error(err);
       setCorrectedText("Something went wrong.");

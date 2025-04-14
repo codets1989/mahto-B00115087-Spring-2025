@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "lRxMwA9LPas=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\ankit\\Downloads\\AI\\finalproject1\\mahto-B00115087-Spring-2025\\src\\WritingCoach\\WritingCoach.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ankit\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.4\\microsoft.aspnetcore.openapi.9.0.4.nupkg.sha512",
+    "C:\\Users\\ankit\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}

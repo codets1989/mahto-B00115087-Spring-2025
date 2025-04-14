@@ -1,0 +1,6 @@
+@WritingCoach_HostAddress = http://localhost:5278
+
+GET {{WritingCoach_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
